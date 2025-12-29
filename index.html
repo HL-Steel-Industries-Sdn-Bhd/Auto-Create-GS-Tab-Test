@@ -215,7 +215,7 @@
                 <br><strong>Step 2:</strong> Copy the web app URL and paste it here.
             </p>
             <input type="text" id="gasUrl" class="config-input" 
-                   placeholder="https://script.google.com/macros/s/AKfycbxUwENsLfEFpSez9rJZCj6RaVF_5rI4sVcSixwllU5_rVGgqZyL7gXMga5Dpb9_10wm/exec">
+                   placeholder="https://script.google.com/macros/s/XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX/exec">
             <button type="button" onclick="saveConfig()" style="background-color: #4CAF50; color: white; padding: 10px 20px;">
                 Save Configuration
             </button>
@@ -307,17 +307,17 @@
     </div>
 
     <script>
+        // 全局变量声明放在最外层
+        const SHEET_MAP = {
+            '2025-12': '1qXNCBNvO3e8SUxHq8g84ditVSbNRvkw2g1M2C9bWw68',
+            '2026-1': '1rO89kIwrjCMzIbIjny8O8nT8kp-WSm6GDZH8CPQZysg',
+            '2026-2': '1H6koj_rbNziPupTsg0QrrWhtk6O-Lp7uZ-GQeQStVoE'
+        };
+        
         // Initialize
         document.addEventListener('DOMContentLoaded', function() {
             updateDateInfo();
             loadConfig();
-            
-            // Month-Year to Google Sheet ID mapping
-            window.sheetMap = {
-                '2025-12': '1qXNCBNvO3e8SUxHq8g84ditVSbNRvkw2g1M2C9bWw68',
-                '2026-1': '1rO89kIwrjCMzIbIjny8O8nT8kp-WSm6GDZH8CPQZysg',
-                '2026-2': '1H6koj_rbNziPupTsg0QrrWhtk6O-Lp7uZ-GQeQStVoE'
-            };
         });
         
         // Update current month/year and target sheet info
@@ -331,7 +331,7 @@
             const month = now.getMonth() + 1; // 1-12
             const year = now.getFullYear();
             const key = `${year}-${month}`;
-            const sheetId = window.sheetMap[key] || window.sheetMap['2025-12'];
+            const sheetId = SHEET_MAP[key] || SHEET_MAP['2025-12'];
             
             document.getElementById('currentMonth').textContent = 
                 `Current Month: ${monthYear}`;
@@ -372,10 +372,12 @@
             const savedUrl = localStorage.getItem('gasWebAppUrl');
             if (savedUrl) {
                 document.getElementById('gasUrl').value = savedUrl;
+                // Hide config section if URL is already saved
+                document.getElementById('configSection').style.display = 'none';
             }
         }
         
-        // Form submission using fetch API (to avoid CORS issues with iframe)
+        // Form submission using fetch API
         async function submitToGAS() {
             const statusDiv = document.getElementById('statusMessage');
             
@@ -400,58 +402,76 @@
             statusDiv.style.display = 'block';
             
             // Get form data
-            const formData = new FormData(document.getElementById('salesForm'));
+            const formData = {
+                salesOrder: document.getElementById('salesOrder').value,
+                customerName: document.getElementById('customerName').value,
+                itemNo: document.getElementById('itemNo').value,
+                itemName: document.getElementById('itemName').value,
+                dimension: document.getElementById('dimension').value,
+                quantity: document.getElementById('quantity').value,
+                unit: document.getElementById('unit').value
+            };
             
             // Add current month/year and sheet ID
             const now = new Date();
             const month = now.getMonth() + 1;
             const year = now.getFullYear();
             const key = `${year}-${month}`;
-            const sheetId = window.sheetMap[key] || window.sheetMap['2025-12'];
+            const sheetId = SHEET_MAP[key] || SHEET_MAP['2025-12'];
             
             // Create URL parameters
             const params = new URLSearchParams();
-            params.append('salesOrder', document.getElementById('salesOrder').value);
-            params.append('customerName', document.getElementById('customerName').value);
-            params.append('itemNo', document.getElementById('itemNo').value);
-            params.append('itemName', document.getElementById('itemName').value);
-            params.append('dimension', document.getElementById('dimension').value);
-            params.append('quantity', document.getElementById('quantity').value);
-            params.append('unit', document.getElementById('unit').value);
+            params.append('salesOrder', formData.salesOrder);
+            params.append('customerName', formData.customerName);
+            params.append('itemNo', formData.itemNo);
+            params.append('itemName', formData.itemName);
+            params.append('dimension', formData.dimension);
+            params.append('quantity', formData.quantity);
+            params.append('unit', formData.unit);
             params.append('month', month);
             params.append('year', year);
             params.append('sheetId', sheetId);
             
             try {
-                // Send to GAS Web App
-                const response = await fetch(gasUrl, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded',
-                    },
-                    mode: 'no-cors', // Important for GAS web app
-                    body: params.toString()
-                });
+                // Send to GAS Web App using XMLHttpRequest (better for no-cors)
+                const xhr = new XMLHttpRequest();
+                xhr.open('POST', gasUrl);
+                xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
                 
-                // Note: With 'no-cors' mode, we can't read the response
-                // But GAS will still process the request
+                xhr.onload = function() {
+                    if (xhr.status === 200 || xhr.status === 0) {
+                        // Show success message
+                        statusDiv.className = 'status-message success';
+                        statusDiv.innerHTML = '✅ Data submitted successfully! Check your Google Sheet for the new tab.';
+                        statusDiv.style.display = 'block';
+                        
+                        // Reset form after success
+                        setTimeout(() => {
+                            resetForm();
+                            statusDiv.style.display = 'none';
+                        }, 5000);
+                    } else {
+                        throw new Error('Request failed');
+                    }
+                };
                 
-                // Show success message
-                statusDiv.className = 'status-message success';
-                statusDiv.innerHTML = '✅ Data submitted successfully! Check your Google Sheet for the new tab.';
-                statusDiv.style.display = 'block';
+                xhr.onerror = function() {
+                    // Even with error, GAS might have processed it
+                    statusDiv.className = 'status-message success';
+                    statusDiv.innerHTML = '✅ Data sent to Google Apps Script. Please check your Google Sheet to confirm.';
+                    statusDiv.style.display = 'block';
+                    
+                    setTimeout(() => {
+                        resetForm();
+                        statusDiv.style.display = 'none';
+                    }, 5000);
+                };
                 
-                // Reset form after success
-                setTimeout(() => {
-                    resetForm();
-                    statusDiv.style.display = 'none';
-                }, 5000);
+                xhr.send(params.toString());
                 
             } catch (error) {
-                // Even with error, GAS might have processed it
-                // (GAS Web Apps often work despite CORS)
-                statusDiv.className = 'status-message success';
-                statusDiv.innerHTML = '✅ Data sent to Google Apps Script. Please check your Google Sheet to confirm.';
+                statusDiv.className = 'status-message error';
+                statusDiv.innerHTML = '❌ Error submitting data. Please check your configuration.';
                 statusDiv.style.display = 'block';
             }
         }
