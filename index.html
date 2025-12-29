@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Sales Order Data Entry</title>
 <style>
-    /* 保持原有样式不变 */
     * { box-sizing: border-box; margin:0; padding:0; font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
     body { background: linear-gradient(135deg,#667eea 0%,#764ba2 100%); min-height:100vh; display:flex; justify-content:center; align-items:center; padding:20px; }
     .container { background:white; border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,0.2); width:100%; max-width:800px; padding:30px; }
@@ -44,8 +43,8 @@
         <div style="margin-top:8px; color:#666; font-size:12px;" id="targetSheetInfo"></div>
     </div>
 
-    <!-- Hidden iframe for form submission -->
-    <iframe name="hidden_iframe" id="hidden_iframe" style="display:none;" onload="iframeLoaded()"></iframe>
+    <!-- Hidden iframe -->
+    <iframe name="hidden_iframe" id="hidden_iframe" style="display:none;"></iframe>
 
     <!-- Main Form -->
     <form id="salesForm" target="hidden_iframe" method="post">
@@ -92,7 +91,7 @@
             </div>
         </div>
 
-        <!-- Hidden fields for month/year/sheetId -->
+        <!-- Hidden fields -->
         <input type="hidden" id="month" name="month">
         <input type="hidden" id="year" name="year">
         <input type="hidden" id="sheetId" name="sheetId">
@@ -106,7 +105,7 @@
 </div>
 
 <script>
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbyhR8FFuiuxkIFsFrlu1UklaOaZ08peSkDiTKFRVimKW2Zirj0y3taZvWK4AkGhSTjp/exec';
+const GAS_URL = 'https://script.google.com/macros/s/YOUR_GAS_URL_HERE/exec';
 
 const SHEET_MAP = {
     '2025-12': '1qXNCBNvO3e8SUxHq8g84ditVSbNRvkw2g1M2C9bWw68',
@@ -114,11 +113,11 @@ const SHEET_MAP = {
     '2026-2': '1H6koj_rbNziPupTsg0QrrWhtk6O-Lp7uZ-GQeQStVoE'
 };
 
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function(){
     updateDateInfo();
+    document.getElementById('hidden_iframe').addEventListener('load', iframeLoaded);
 });
 
-// 更新日期信息
 function updateDateInfo(){
     const now=new Date();
     const monthYear=now.toLocaleString('en-US',{month:'long',year:'numeric'});
@@ -131,18 +130,15 @@ function updateDateInfo(){
     document.getElementById('targetSheetInfo').innerHTML=`Target Google Sheet: <code>${shortSheetId}</code>`;
 }
 
-// 准备表单隐藏字段并设置 action
 function prepareForm(){
     const now=new Date();
     const month=now.getMonth()+1;
     const year=now.getFullYear();
     const key=`${year}-${month}`;
     const sheetId=SHEET_MAP[key]||SHEET_MAP['2025-12'];
-
     document.getElementById('month').value=month;
     document.getElementById('year').value=year;
     document.getElementById('sheetId').value=sheetId;
-
     document.getElementById('salesForm').action=GAS_URL;
 
     const statusDiv=document.getElementById('statusMessage');
@@ -151,7 +147,6 @@ function prepareForm(){
     statusDiv.style.display='block';
 }
 
-// iframe load 回调
 function iframeLoaded(){
     const statusDiv=document.getElementById('statusMessage');
     if(statusDiv.innerHTML.includes('Submitting')){
@@ -164,7 +159,6 @@ function iframeLoaded(){
     }
 }
 
-// 重置表单
 function resetForm(){
     document.getElementById('salesForm').reset();
     document.getElementById('statusMessage').style.display='none';
